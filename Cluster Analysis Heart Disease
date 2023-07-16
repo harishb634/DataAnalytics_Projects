@@ -1,0 +1,166 @@
+#cluster analysis - Harish Bodasinghi
+
+#Loading libraries
+install.packages("ggfortify")
+
+library(factoextra)
+library(ggplot2)
+library(readxl)
+library(readr)
+library(ggfortify)
+library(gridExtra)
+library(dplyr)
+library(reshape2)
+library(rpart,quietly = TRUE)
+library(caret,quietly = TRUE)
+library(rpart.plot,quietly = TRUE)
+library(rattle)
+library(e1071)
+
+#Data Import
+heart_disease <- read.csv(file.path("/Users/Harish Bodasinghi/Desktop/ALY 6040/heart_2020_cleaned.csv"))
+
+#View(heart_disease)
+str(heart_disease)
+
+summary(heart_disease)
+
+nrow(heart_disease)
+ncol(heart_disease)
+
+p1 <- ggplot(heart_disease, aes(x=BMI, fill="red")) + geom_histogram() + theme_classic() +
+  theme(legend.position="none", plot.title = element_text(hjust = 0.5)) + ggtitle("Distribution of BMI")
+p1
+
+avg_bmi <- heart_disease %>% group_by(AgeCategory) %>%  summarize(avg.bmi = mean(BMI))
+
+p2 <- ggplot(avg_bmi, aes(x= AgeCategory, y = avg.bmi, fill="red")) + geom_bar(stat = "identity") + 
+  theme_classic() + theme(legend.position="none", plot.title = element_text(hjust = 0.5)) + 
+  ggtitle("Average BMI by Age")
+p2
+
+
+# Decision Tree
+
+number.perfect.splits <- apply(X=heart_disease[-c(1)], MARGIN = 2, FUN = function(col){
+  t <- table(heart_disease$HeartDisease,col)
+  sum(t == 0)
+})
+  
+
+p <- heart_disease[-c(2)]
+
+# Descending order of perfect splits
+order <- order(number.perfect.splits,decreasing = TRUE)
+number.perfect.splits <- number.perfect.splits[order]  
+
+
+# Plot graph
+par(mar=c(10,2,2,2))
+barplot(number.perfect.splits,
+        main="Number of perfect splits vs feature",
+        xlab="",ylab="Feature",las=2,col="wheat")
+
+
+#data splicing
+set.seed(12345)
+train <- sample(1:nrow(heart_disease),size = ceiling(0.80*nrow(heart_disease)),replace = FALSE)
+# training set
+heart_disease_train <- heart_disease[train,]
+# test set
+heart_disease_test <- heart_disease[-train,]
+
+# penalty matrix
+penalty.matrix <- matrix(c(0,1,10,0), byrow=TRUE, nrow=2)
+
+
+# building the classification tree with rpart
+tree <- rpart(HeartDisease~.,
+              data=heart_disease_train,
+              parms = list(loss = penalty.matrix),
+              method = "class")
+
+
+# Visualize the decision tree with rpart.plot
+rpart.plot(tree, nn=TRUE)
+
+# choosing the best complexity parameter "cp" to prune the tree
+cp.optim <- tree$cptable[which.min(tree$cptable[,"xerror"]),"CP"]
+# tree prunning using the best complexity parameter. For more in
+tree <- prune(tree, cp=cp.optim)
+
+#Testing the model
+pred <- predict(object=tree,heart_disease_test[-1],type="class")
+
+
+#Calculating accuracy
+t <- table(heart_disease_test$HeartDisease,pred) 
+confusionMatrix(t) 
+
+
+#Clustering
+
+set.seed(265)
+heart.disease.sample <- heart_disease[sample(nrow(heart_disease), 600), ]
+
+
+heart.disease.kmeans <- heart.disease.sample[c("BMI", "PhysicalHealth", "SleepTime", "MentalHealth")]
+
+heart.disease.kmeans.scaled <- scale(heart.disease.kmeans)
+
+
+kmeans.distance <- get_dist(heart.disease.kmeans.scaled, method = "pearson")
+
+round(as.matrix(kmeans.distance)[1:3, 1:3], 1)
+
+
+
+fviz_dist(kmeans.distance, 
+          show_labels = FALSE,
+          gradient = list(low = "red", mid = "white", high = "blue"))
+
+
+#Elbow Method for optimal clusters
+set.seed(123)
+fviz_nbclust(heart.disease.kmeans.scaled, kmeans, method = "wss")
+
+
+# Average Silhouette  Method
+fviz_nbclust(heart.disease.kmeans.scaled, kmeans, method = "silhouette")
+
+
+
+k2 <- kmeans(heart.disease.kmeans.scaled, centers = 2, nstart = 25)
+k5 <- kmeans(heart.disease.kmeans.scaled, centers = 5, nstart = 25)
+k7 <- kmeans(heart.disease.kmeans.scaled, centers = 7, nstart = 25)
+k9 <- kmeans(heart.disease.kmeans.scaled, centers = 9, nstart = 25)
+
+
+
+p1 <- fviz_cluster(k2, geom = "point", data = heart.disease.kmeans.scaled)+
+  ggtitle("k = 2")
+p2 <- fviz_cluster(k5, geom = "point", data = heart.disease.kmeans.scaled)+
+  ggtitle("k = 5")
+p3 <- fviz_cluster(k7, geom = "point", data = heart.disease.kmeans.scaled)+
+  ggtitle("k = 7")
+p4 <- fviz_cluster(k9, geom = "point", data = heart.disease.kmeans.scaled)+
+  ggtitle("k = 9")
+
+grid.arrange(p1,p2,p3, p4, nrow = 2)
+
+c2<- heart.disease.kmeans %>% 
+  mutate(Cluster2 = k2$cluster) %>% 
+  group_by(Cluster2) %>% 
+  summarise_all("mean")
+
+write.csv(c2, "c2.csv")
+
+
+mdata <- melt(c2, id=c("Cluster2"))
+
+ggplot(mdata, aes(variable, value, fill=as.factor(Cluster2)) ) + 
+  geom_bar(stat = "identity", position = 'dodge') +
+  ggtitle("Mean Parameter values across clusters")
+
+
+
