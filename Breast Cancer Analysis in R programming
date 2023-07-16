@@ -1,0 +1,133 @@
+# Breast Cancer Analysis - Harish Bodasinghi
+
+#Installing Packages
+install.packages("e1071")
+install.packages("caret")
+#checking the libraries
+library(e1071)
+library(caret)
+
+#Loading the Data
+bcdiagnosis <- read.csv("C:/Users/Harish Bodasinghi/Desktop/Breastcancerdiagnosis.csv")
+
+#Checking weather we have any missing values
+anyNA(bcdiagnosis)
+
+#We can find no missing values.
+
+#exploring the data
+
+head(bcdiagnosis)
+summary(bcdiagnosis)
+str(bcdiagnosis)
+nrow(bcdiagnosis)
+ncol(bcdiagnosis)
+
+# Here diagnosis the target variable but it is categorical so I have converted it to
+# numerical, assuming 0 for benign and 1 for malignant.
+
+bcdiagnosis$diagnosis = factor(bcdiagnosis$diagnosis,levels = c('B', 'M'), labels = c(0, 1))
+
+# Summary of Data
+# testing if its converted or not
+str(bcdiagnosis)
+head(bcdiagnosis)
+
+#Benign-B is 0  & Malignant-M is 1;
+table(bcdiagnosis$diagnosis)
+
+#Splitting the dataset into train and test
+
+set.seed(254)
+intrain <- createDataPartition(y=bcdiagnosis$diagnosis , p=0.65, list = FALSE)
+train <- bcdiagnosis[intrain,]
+test <- bcdiagnosis[-intrain,]
+
+
+#Checking the dimensions of train and test samples
+dim(train)
+dim(test)
+
+#Converting 0 and 1 in target variable to factors
+
+train[["diagnosis"]] <- factor(train[["diagnosis"]])
+
+
+# 1st Model 
+# Support Vector Machine Model 1
+svm.linear.model.1 <- svm(diagnosis~symmetry_se+fractal_dimension_se,
+                          data = train,
+                          type = "C-classification",
+                          kernel="polynomial",
+                          scale = FALSE)
+
+svm.linear.model.1
+
+
+pred_train <- predict(svm.linear.model.1, train)
+mean(pred_train == train$diagnosis)
+
+
+
+plot(svm.linear.model.1, train[c("diagnosis", "symmetry_se", "fractal_dimension_se" )])
+
+
+#Prediction (Test set)
+test_pred <- predict(svm.linear.model.1, newdata = test)
+test_pred
+
+
+#Confusion Matrix
+confusionMatrix(table(test_pred, test$diagnosis))
+
+
+## Model #2
+
+# Support Vector Machine Model 2
+svm.linear.model.2 <- svm(diagnosis~texture_mean+area_mean,
+                          data = train,
+                          type = "C-classification",
+                          kernel="linear",
+                          scale = FALSE)
+
+
+pred_train <- predict(svm.linear.model.2, train)
+mean(pred_train == train$diagnosis)
+
+plot(svm.linear.model.2, train[c("diagnosis", "texture_mean", "area_mean" )])
+
+
+#Prediction (Test Set)
+test_pred <- predict(svm.linear.model.2, newdata = test)
+test_pred
+
+
+#Confusion Matrix
+confusionMatrix(table(test_pred, test$diagnosis))
+
+
+## Model #3
+
+# Support Vector Machine Model 3
+svm.linear.model.3 <- svm(diagnosis~smoothness_worst+concavity_worst,
+                          data = train,
+                          type = "C-classification",
+                          kernel="sigmoid",
+                          scale = FALSE)
+
+svm.linear.model.3
+
+
+pred_train <- predict(svm.linear.model.3, train)
+mean(pred_train == train$diagnosis)
+
+plot(svm.linear.model.3, train[c("diagnosis", "smoothness_worst", "concavity_worst" )])
+
+
+#Prediction (Test Set)
+test_pred <- predict(svm.linear.model.3, newdata = test)
+test_pred
+
+#Confusion Matrix
+confusionMatrix(table(test_pred, test$diagnosis))
+
