@@ -18,7 +18,7 @@ library(rattle)
 library(e1071)
 
 #Data Import
-heart_disease <- read.csv(file.path("/Users/Harish Bodasinghi/Desktop/ALY 6040/heart_2020_cleaned.csv"))
+heart_disease <- read.csv(file.path("/Users/Harish Bodasinghi/Desktop/heart_2020_cleaned.csv"))
 
 #View(heart_disease)
 str(heart_disease)
